@@ -1,0 +1,328 @@
+// Aloft — Prisma schema
+//
+// Single source of truth for the database. The FastAPI side mirrors these
+// tables in api/aloft/models.py — update both when changing the schema.
+//
+// Conventions (see CLAUDE.md):
+//   - IDs are CUIDs.
+//   - All timestamps are UTC; column names carry `_utc` for clarity.
+//   - Distance in km, altitude in metres, speed in m/s.
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  directUrl         = env("DIRECT_DATABASE_URL")
+  extensions        = [pg_trgm]
+}
+
+// ---------------------------------------------------------------------------
+// NextAuth (Google sign-in, allow-listed to OWNER_EMAIL)
+// ---------------------------------------------------------------------------
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String    @unique
+  emailVerified DateTime?
+  image         String?
+
+  accounts Account[]
+  sessions Session[]
+  flights  Flight[]
+  trips    Trip[]
+  emailImports EmailImport[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------------------------------------------------------------------------
+// Reference data (seeded)
+// ---------------------------------------------------------------------------
+
+model Airport {
+  id            String  @id @default(cuid())
+  icao          String? @unique @db.VarChar(4)
+  iata          String? @db.VarChar(3)
+  name          String
+  municipality  String?
+  isoCountry    String? @db.VarChar(2)
+  latitude      Float
+  longitude     Float
+  elevationFt   Int?
+  type          String? // large_airport | medium_airport | ...
+
+  departures Flight[] @relation("DepartureAirport")
+  arrivals   Flight[] @relation("ArrivalAirport")
+
+  @@index([iata])
+  @@index([isoCountry])
+  @@index([latitude, longitude])
+  @@map("airports")
+}
+
+model Airline {
+  id        String  @id @default(cuid())
+  icao      String? @unique @db.VarChar(3)
+  iata      String? @db.VarChar(2)
+  name      String
+  callsign  String?
+  country   String?
+  active    Boolean @default(true)
+
+  flights Flight[]
+
+  @@index([iata])
+  @@map("airlines")
+}
+
+model AircraftType {
+  id                  String  @id @default(cuid())
+  icaoCode            String  @unique @db.VarChar(4) // e.g. "A320", "B77W"
+  manufacturer        String?
+  model               String
+  seatsTypical        Int?
+  fuelBurnPerHourKg   Float?
+
+  flights Flight[]
+
+  @@map("aircraft_types")
+}
+
+model Aircraft {
+  id            String  @id @default(cuid())
+  icao24        String  @unique @db.VarChar(6) // 24-bit transponder hex
+  registration  String?
+  typeCode      String? @db.VarChar(4)
+  model         String?
+  operator      String?
+  operatorIcao  String? @db.VarChar(3)
+  yearBuilt     Int?
+
+  // typeCode is informational — OpenSky's registry has many codes outside
+  // our curated `aircraft_types` table. Join at query time when needed.
+  flights       Flight[]
+
+  updatedAt     DateTime @updatedAt
+
+  @@index([registration])
+  @@index([typeCode])
+  @@map("aircraft")
+}
+
+// ---------------------------------------------------------------------------
+// User data
+// ---------------------------------------------------------------------------
+
+enum ResolutionStatus {
+  pending
+  resolved
+  no_coverage
+  ambiguous
+  failed
+}
+
+enum FlightSource {
+  manual
+  email
+  imported
+}
+
+model Flight {
+  id            String @id @default(cuid())
+  userId        String
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  date          DateTime // calendar date of the flight (UTC midnight)
+  callsign      String?  // e.g. "DLH892"
+  registration  String?  // e.g. "D-AIXP"
+  icao24        String?  @db.VarChar(6)
+
+  depAirportId  String
+  depAirport    Airport @relation("DepartureAirport", fields: [depAirportId], references: [id])
+  arrAirportId  String
+  arrAirport    Airport @relation("ArrivalAirport", fields: [arrAirportId], references: [id])
+
+  airlineId        String?
+  airline          Airline?      @relation(fields: [airlineId], references: [id])
+  aircraftTypeId   String?
+  aircraftType     AircraftType? @relation(fields: [aircraftTypeId], references: [id])
+  aircraftId       String?
+  aircraft         Aircraft?     @relation(fields: [aircraftId], references: [id])
+
+  tripId        String?
+  trip          Trip?   @relation(fields: [tripId], references: [id])
+
+  // Optional user metadata
+  seat          String?
+  notes         String? @db.Text
+
+  // Filled by the resolver
+  firstSeenUtc  DateTime?
+  lastSeenUtc   DateTime?
+  distanceKm    Float?
+  durationMin   Int?
+  co2Kg         Float?
+
+  resolutionStatus ResolutionStatus @default(pending)
+  resolutionError  String?          @db.Text
+  resolutionAttempts Int            @default(0)
+  resolvedAt       DateTime?
+
+  source        FlightSource @default(manual)
+  sourceEmailId String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  track         Track?
+
+  @@index([userId, date(sort: Desc)])
+  @@index([date])
+  @@index([icao24])
+  @@index([callsign])
+  @@index([resolutionStatus])
+  @@map("flights")
+}
+
+model Track {
+  id            String @id @default(cuid())
+  flightId      String @unique
+  flight        Flight @relation(fields: [flightId], references: [id], onDelete: Cascade)
+
+  // Downsampled waypoint array. Schema:
+  //   [{ t: epoch_seconds, lat: f, lon: f, alt_m: f|null, vel_ms: f|null, heading: f|null, on_ground: bool }, ...]
+  waypoints     Json
+
+  // Detected coverage gaps. Schema:
+  //   [{ start: epoch_seconds, end: epoch_seconds, duration_s: int }, ...]
+  gaps          Json?
+
+  // Great-circle fallback geometry. Schema:
+  //   [{ lat, lon }, ...]
+  greatCircle   Json?
+
+  source        String @default("opensky") // opensky | manual | imported
+  pointCount    Int    @default(0)
+  fetchedAt     DateTime @default(now())
+
+  @@index([flightId])
+  @@map("tracks")
+}
+
+model Trip {
+  id            String @id @default(cuid())
+  userId        String
+  user          User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  label         String? // user-editable, e.g. "Tokyo 2024"
+  startUtc      DateTime
+  endUtc        DateTime
+  homeAirport   String? // IATA/ICAO of the "home" airport delimiting the trip
+  autoGenerated Boolean @default(true)
+
+  flights       Flight[]
+
+  createdAt     DateTime @default(now())
+
+  @@index([userId, startUtc])
+  @@map("trips")
+}
+
+// ---------------------------------------------------------------------------
+// Operational tables (imports, rate-limit accounting)
+// ---------------------------------------------------------------------------
+
+model EmailImport {
+  id                  String   @id @default(cuid())
+  userId              String
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messageId           String   @unique
+  threadId            String?
+  subject             String?
+  fromAddr            String?
+  receivedAt          DateTime?
+  parsedFlightsCount  Int      @default(0)
+  confidence          String?  // high | medium | low
+  status              String   @default("parsed") // parsed | imported | rejected | skipped
+  rawExcerpt          String?  @db.Text
+  createdAt           DateTime @default(now())
+
+  @@index([userId])
+  @@index([messageId])
+  @@map("email_imports")
+}
+
+model OpenSkyCredit {
+  id         BigInt   @id @default(autoincrement())
+  day        DateTime
+  endpoint   String
+  credits    Int
+  requestId  String?
+  createdAt  DateTime @default(now())
+
+  @@index([day])
+  @@map("opensky_credits")
+}
+
+// ---------------------------------------------------------------------------
+// Aircraft photos — caches Planespotters lookups keyed by registration,
+// icao24, or type code (e.g. "reg:D-AIXP", "icao24:486953", "type:A320").
+// `notFound` enables negative caching so we don't hammer the API for
+// airframes Planespotters has no photo of.
+// ---------------------------------------------------------------------------
+
+model AircraftPhoto {
+  id              String   @id @default(cuid())
+  key             String   @unique
+  photoUrl        String?
+  thumbUrl        String?
+  photographer    String?
+  attributionUrl  String?
+  notFound        Boolean  @default(false)
+  fetchedAt       DateTime @default(now())
+
+  @@index([fetchedAt])
+  @@map("aircraft_photos")
+}

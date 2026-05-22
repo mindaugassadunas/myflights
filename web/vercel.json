@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/resolve-pending",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/cluster-trips",
+      "schedule": "0 4 * * *"
+    }
+  ]
+}

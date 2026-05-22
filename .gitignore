@@ -1,0 +1,55 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Node / Next.js (web/)
+web/node_modules
+web/.next
+web/out
+web/.vercel
+web/next-env.d.ts
+web/public/sw.js
+web/public/sw.js.map
+web/public/workbox-*.js
+web/public/workbox-*.js.map
+
+# Python / FastAPI (api/)
+api/.venv
+api/__pycache__
+api/**/__pycache__
+api/.pytest_cache
+api/.ruff_cache
+api/.mypy_cache
+api/*.egg-info
+api/dist
+api/build
+
+# Prisma
+web/prisma/migrations/dev.db*
+
+# Data downloads (seed sources fetched at runtime)
+data/
+api/data/
+
+# Coverage
+coverage/
+.coverage
+htmlcov/
