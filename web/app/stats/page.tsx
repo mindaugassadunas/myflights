@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { requireOwner } from "@/lib/session";
-import { getEquivalents, getRecords, getYearlyTotals } from "@/lib/stats";
+import { getRecords, getTopList, getYearlyTotals } from "@/lib/stats";
 import YearlyChart from "@/components/yearly-chart-loader";
 
 export const metadata = { title: "Stats — Aloft" };
@@ -10,9 +10,10 @@ export const dynamic = "force-dynamic";
 export default async function StatsPage() {
   const owner = await requireOwner();
 
-  const [yearly, records, flights] = await Promise.all([
+  const [yearly, records, top, flights] = await Promise.all([
     getYearlyTotals(owner.id),
     getRecords(owner.id),
+    getTopList(owner.id),
     prisma.flight.findMany({
       where: { userId: owner.id, resolutionStatus: { in: ["resolved", "no_coverage"] } },
       select: {
@@ -49,7 +50,6 @@ export default async function StatsPage() {
     },
   );
 
-  const equivalents = getEquivalents(totals.distanceKm, totals.co2Kg);
   const chartData = yearly.map((y) => ({
     year: y.year,
     flights: y.flights,
@@ -57,45 +57,107 @@ export default async function StatsPage() {
     hours: Math.round(y.hours * 10) / 10,
   }));
 
+  const earthLaps = totals.distanceKm / 40075;
+  const hours = totals.durationMin / 60;
+  const distance = Math.round(totals.distanceKm).toLocaleString();
+
+  const hasTopList = top.route || top.airline || top.aircraftType;
+
   return (
-    <div className="px-5 py-6 pt-[calc(env(safe-area-inset-top)+16px)] space-y-5 pb-10">
-      <header>
-        <h1 className="text-[22px] leading-7 font-light">Lifetime</h1>
-        <p className="mt-1 text-[14px] text-text-secondary">
-          Across {totals.flights} resolved flight{totals.flights === 1 ? "" : "s"}.
-        </p>
+    <div className="pt-[calc(env(safe-area-inset-top)+16px)] pb-12">
+      {/* ─────────────────────────────────────── HERO ────────────────────── */}
+      <header className="px-5 mb-10">
+        <div className="flex items-end gap-4 border-b-2 border-accent/60 pb-3">
+          <span className="font-mono-data uppercase tracking-[0.22em] text-text-primary text-[18px] leading-none">
+            Lifetime
+          </span>
+          <span className="h-px flex-1 bg-border mb-2" />
+          <span className="font-mono-data uppercase tracking-[0.18em] text-text-secondary text-[11px] leading-none">
+            {totals.flights} flight{totals.flights === 1 ? "" : "s"}
+          </span>
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2">
+          <div className="flex items-baseline gap-3">
+            <h1 className="font-mono-data text-text-primary text-[64px] leading-[1] tracking-tight">
+              {distance}
+            </h1>
+            <span className="text-[24px] leading-none font-mono-data uppercase tracking-wider text-text-secondary">
+              km
+            </span>
+          </div>
+          <div className="flex items-baseline gap-2 leading-none">
+            <span className="font-mono-data text-accent text-[28px] leading-none tabular-nums">
+              {earthLaps.toFixed(2)}×
+            </span>
+            <span className="font-mono-data uppercase tracking-[0.14em] text-text-secondary text-[12px]">
+              around Earth
+            </span>
+          </div>
+        </div>
       </header>
 
-      <section className="bg-surface border border-border rounded-[2px] p-5">
-        <div className="text-[12px] font-mono-data uppercase tracking-wider text-text-secondary">
-          Distance · km
-        </div>
-        <div className="mt-2 text-[36px] leading-10 font-mono-data">
-          {Math.round(totals.distanceKm).toLocaleString()}
-        </div>
-        <div className="mt-1 text-[13px] text-text-secondary">
-          {(totals.distanceKm / 40075).toFixed(2)} times around Earth
+      {/* ─────────────────────────────── INLINE STAT RIBBON ──────────────── */}
+      <section className="px-5 mb-12">
+        <div className="border-y border-border divide-x divide-border grid grid-cols-3">
+          <RibbonStat
+            label="Hours airborne"
+            value={hours < 100 ? hours.toFixed(1) : Math.round(hours).toLocaleString()}
+            unit="h"
+          />
+          <RibbonStat label="Airports" value={totals.airportIds.size.toLocaleString()} />
+          <RibbonStat label="Countries" value={totals.countries.size.toLocaleString()} />
         </div>
       </section>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Stat label="Flights" value={totals.flights.toLocaleString()} />
-        <Stat label="Hours airborne" value={(totals.durationMin / 60).toFixed(1)} />
-        <Stat label="Airports" value={totals.airportIds.size.toLocaleString()} />
-        <Stat label="Countries" value={totals.countries.size.toLocaleString()} />
-      </div>
+      {/* ─────────────────────────────── MOST FLOWN ──────────────────────── */}
+      {hasTopList && (
+        <section className="px-5 mb-14">
+          <SectionHead
+            index="01"
+            title="Most flown"
+            caption="Top route, airline, and airframe"
+          />
+          <ul className="mt-5">
+            {top.route && (
+              <TopRow
+                kind="Route"
+                primary={`${top.route.dep}  →  ${top.route.arr}`}
+                count={top.route.count}
+              />
+            )}
+            {top.airline && (
+              <TopRow
+                kind="Airline"
+                primary={top.airline.name}
+                meta={top.airline.iata ?? top.airline.icao ?? null}
+                count={top.airline.count}
+              />
+            )}
+            {top.aircraftType && (
+              <TopRow
+                kind="Aircraft"
+                primary={top.aircraftType.code}
+                meta={[top.aircraftType.manufacturer, top.aircraftType.model]
+                  .filter(Boolean)
+                  .join(" ") || null}
+                count={top.aircraftType.count}
+              />
+            )}
+          </ul>
+        </section>
+      )}
 
-      <section>
-        <h2 className="text-[14px] font-mono-data uppercase tracking-wider text-text-secondary mb-3">
-          Records
-        </h2>
-        <ul className="space-y-2">
-          {records.longestDistance && (
-            <RecordRow record={records.longestDistance} />
-          )}
-          {records.shortestDistance && (
-            <RecordRow record={records.shortestDistance} />
-          )}
+      {/* ─────────────────────────────── RECORDS ─────────────────────────── */}
+      <section className="px-5 mb-14">
+        <SectionHead
+          index={hasTopList ? "02" : "01"}
+          title="Records"
+          caption="Personal bests and bookends"
+        />
+        <ul className="mt-5">
+          {records.longestDistance && <RecordRow record={records.longestDistance} />}
+          {records.shortestDistance && <RecordRow record={records.shortestDistance} />}
           {records.busiestYear && (
             <RecordRowText
               label="Busiest year"
@@ -107,38 +169,25 @@ export default async function StatsPage() {
           {records.longestGapDays && (
             <RecordRowText
               label="Longest gap between flights"
-              metric={`${records.longestGapDays.days} ${records.longestGapDays.days === 1 ? "day" : "days"}`}
+              metric={`${records.longestGapDays.days} ${
+                records.longestGapDays.days === 1 ? "day" : "days"
+              }`}
               detail={`${records.longestGapDays.from} → ${records.longestGapDays.to}`}
             />
           )}
         </ul>
       </section>
 
-      {equivalents.length > 0 && (
-        <section>
-          <h2 className="text-[14px] font-mono-data uppercase tracking-wider text-text-secondary mb-3">
-            Equivalents
-          </h2>
-          <div className="grid grid-cols-2 gap-3">
-            {equivalents.map((eq) => (
-              <div key={eq.label} className="bg-surface border border-border rounded-[2px] p-3">
-                <div className="text-[11px] font-mono-data uppercase tracking-wider text-text-secondary">
-                  {eq.label}
-                </div>
-                <div className="mt-1 text-[18px] font-mono-data">{eq.value}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
+      {/* ─────────────────────────────── YEAR BY YEAR ────────────────────── */}
       {chartData.length > 0 && (
-        <section>
-          <h2 className="text-[14px] font-mono-data uppercase tracking-wider text-text-secondary mb-3">
-            Year by year
-          </h2>
-          <div className="bg-surface border border-border rounded-[2px] p-3">
-            <div className="flex items-center gap-4 mb-2 text-[12px]">
+        <section className="px-5">
+          <SectionHead
+            index={String(1 + (hasTopList ? 1 : 0) + 1).padStart(2, "0")}
+            title="Year by year"
+            caption="Flight count and distance by year"
+          />
+          <div className="mt-5">
+            <div className="flex items-center gap-4 mb-3 text-[12px]">
               <LegendDot color="#00D4FF" label="Flights" />
               <LegendDot color="#E8A547" label="Distance · km" />
             </div>
@@ -150,27 +199,102 @@ export default async function StatsPage() {
   );
 }
 
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+/* ────────────────────────────────── primitives ─────────────────────────── */
+
+function SectionHead({
+  index,
+  title,
+  caption,
+}: {
+  index: string;
+  title: string;
+  caption?: string;
+}) {
   return (
-    <div className="bg-surface border border-border rounded-[2px] p-4">
-      <div className="text-[11px] font-mono-data uppercase tracking-wider text-text-secondary">
-        {label}
+    <div className="flex items-start gap-4 pb-3 border-b border-accent/30">
+      {/* Oversized chapter number — graphical kicker that anchors each
+          section to the page rhythm without needing chrome around it. */}
+      <span
+        aria-hidden
+        className="font-mono-data text-[44px] leading-[0.9] text-text-secondary/25 tracking-tight tabular-nums"
+      >
+        {index}
+      </span>
+      <div className="flex-1 min-w-0 pt-1">
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-[22px] leading-7 font-light text-text-primary">
+            {title}
+          </h2>
+          <span aria-hidden className="h-1.5 w-1.5 rounded-full bg-accent inline-block" />
+        </div>
+        {caption && (
+          <p className="mt-0.5 text-[12px] font-mono-data uppercase tracking-[0.14em] text-text-secondary">
+            {caption}
+          </p>
+        )}
       </div>
-      <div className="mt-2 text-[24px] font-mono-data">{value}</div>
-      {hint && <div className="mt-1 text-[11px] text-text-secondary">{hint}</div>}
     </div>
   );
 }
 
-function LegendDot({ color, label }: { color: string; label: string }) {
+function RibbonStat({
+  label,
+  value,
+  unit,
+}: {
+  label: string;
+  value: string;
+  unit?: string;
+}) {
   return (
-    <div className="flex items-center gap-1.5 text-text-secondary font-mono-data uppercase tracking-wider text-[11px]">
-      <span
-        className="inline-block h-2 w-2 rounded-full"
-        style={{ background: color }}
-      />
-      <span>{label}</span>
+    <div className="px-3 py-4">
+      <div className="text-[10px] font-mono-data uppercase tracking-[0.18em] text-text-secondary">
+        {label}
+      </div>
+      <div className="mt-1.5 flex items-baseline gap-1">
+        <span className="text-[26px] leading-7 font-mono-data text-text-primary">
+          {value}
+        </span>
+        {unit && (
+          <span className="text-[13px] font-mono-data uppercase tracking-wider text-text-secondary">
+            {unit}
+          </span>
+        )}
+      </div>
     </div>
+  );
+}
+
+function TopRow({
+  kind,
+  primary,
+  meta,
+  count,
+}: {
+  kind: string;
+  primary: string;
+  meta?: string | null;
+  count: number;
+}) {
+  return (
+    <li className="grid grid-cols-[80px_1fr_auto] items-center gap-3 py-4 border-b border-border last:border-b-0">
+      <span className="text-[11px] font-mono-data uppercase tracking-[0.18em] text-text-secondary">
+        {kind}
+      </span>
+      <div className="min-w-0">
+        <div className="font-mono-data text-[18px] leading-6 text-text-primary truncate">
+          {primary}
+        </div>
+        {meta && (
+          <div className="text-[12px] text-text-secondary truncate">{meta}</div>
+        )}
+      </div>
+      <div className="text-right">
+        <div className="font-mono-data text-[22px] leading-6 text-accent">
+          ×{count}
+        </div>
+      </div>
+    </li>
   );
 }
 
@@ -183,15 +307,19 @@ function RecordRow({
     <li>
       <Link
         href={`/flights/${record.flightId}`}
-        className="flex items-center justify-between bg-surface border border-border rounded-[2px] px-4 py-3 active:bg-surface-elevated"
+        className="grid grid-cols-[1fr_auto] items-baseline gap-3 py-4 border-b border-border last:border-b-0 active:opacity-70"
       >
-        <div>
-          <div className="text-[12px] font-mono-data uppercase tracking-wider text-text-secondary">
+        <div className="min-w-0">
+          <div className="text-[11px] font-mono-data uppercase tracking-[0.18em] text-text-secondary">
             {record.label}
           </div>
-          <div className="mt-0.5 font-mono-data text-[15px]">{record.detail}</div>
+          <div className="mt-1 font-mono-data text-[18px] leading-6 truncate">
+            {record.detail}
+          </div>
         </div>
-        <div className="text-[18px] font-mono-data text-accent">{record.metric}</div>
+        <div className="font-mono-data text-[22px] leading-6 text-accent whitespace-nowrap">
+          {record.metric}
+        </div>
       </Link>
     </li>
   );
@@ -210,13 +338,15 @@ function RecordRowText({
 }) {
   const inner = (
     <>
-      <div>
-        <div className="text-[12px] font-mono-data uppercase tracking-wider text-text-secondary">
+      <div className="min-w-0">
+        <div className="text-[11px] font-mono-data uppercase tracking-[0.18em] text-text-secondary">
           {label}
         </div>
-        <div className="mt-0.5 font-mono-data text-[15px]">{detail}</div>
+        <div className="mt-1 font-mono-data text-[18px] leading-6 truncate">{detail}</div>
       </div>
-      <div className="text-[18px] font-mono-data text-accent">{metric}</div>
+      <div className="font-mono-data text-[22px] leading-6 text-accent whitespace-nowrap">
+        {metric}
+      </div>
     </>
   );
   if (href) {
@@ -224,7 +354,7 @@ function RecordRowText({
       <li>
         <Link
           href={href}
-          className="flex items-center justify-between bg-surface border border-border rounded-[2px] px-4 py-3 active:bg-surface-elevated"
+          className="grid grid-cols-[1fr_auto] items-baseline gap-3 py-4 border-b border-border last:border-b-0 active:opacity-70"
         >
           {inner}
         </Link>
@@ -232,8 +362,20 @@ function RecordRowText({
     );
   }
   return (
-    <li className="flex items-center justify-between bg-surface border border-border rounded-[2px] px-4 py-3">
+    <li className="grid grid-cols-[1fr_auto] items-baseline gap-3 py-4 border-b border-border last:border-b-0">
       {inner}
     </li>
+  );
+}
+
+function LegendDot({ color, label }: { color: string; label: string }) {
+  return (
+    <div className="flex items-center gap-1.5 text-text-secondary font-mono-data uppercase tracking-wider text-[11px]">
+      <span
+        className="inline-block h-2 w-2 rounded-full"
+        style={{ background: color }}
+      />
+      <span>{label}</span>
+    </div>
   );
 }

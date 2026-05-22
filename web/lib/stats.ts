@@ -70,6 +70,80 @@ export type RecordSet = {
   longestGapDays: { days: number; from: string; to: string } | null;
 };
 
+export type TopList = {
+  route: { dep: string; arr: string; count: number } | null;
+  airline: { name: string; iata: string | null; icao: string | null; count: number } | null;
+  aircraftType: { code: string; manufacturer: string | null; model: string | null; count: number } | null;
+};
+
+/**
+ * "Most flown" trio — top route, top airline, top aircraft type.
+ * Each is the leader by count of flights in the user's log. Returns null
+ * entries when there's no data (e.g., no aircraft type ever set).
+ */
+export async function getTopList(userId: string): Promise<TopList> {
+  const [routeRows, airlineRows, typeRows] = await Promise.all([
+    prisma.$queryRaw<Array<{ dep: string; arr: string; count: bigint }>>`
+      SELECT COALESCE(d.iata, d.icao) AS dep,
+             COALESCE(a.iata, a.icao) AS arr,
+             COUNT(*)::bigint AS count
+      FROM "flights" f
+      JOIN "airports" d ON d.id = f."depAirportId"
+      JOIN "airports" a ON a.id = f."arrAirportId"
+      WHERE f."userId" = ${userId}
+        AND f."resolutionStatus" IN ('resolved', 'no_coverage')
+      GROUP BY dep, arr
+      ORDER BY count DESC
+      LIMIT 1
+    `,
+    prisma.$queryRaw<Array<{ name: string; iata: string | null; icao: string | null; count: bigint }>>`
+      SELECT a.name, a.iata, a.icao, COUNT(*)::bigint AS count
+      FROM "flights" f
+      JOIN "airlines" a ON a.id = f."airlineId"
+      WHERE f."userId" = ${userId}
+        AND f."resolutionStatus" IN ('resolved', 'no_coverage')
+      GROUP BY a.id
+      ORDER BY count DESC
+      LIMIT 1
+    `,
+    prisma.$queryRaw<Array<{ code: string; manufacturer: string | null; model: string | null; count: bigint }>>`
+      SELECT t."icaoCode" AS code,
+             t.manufacturer,
+             t.model,
+             COUNT(*)::bigint AS count
+      FROM "flights" f
+      JOIN "aircraft_types" t ON t.id = f."aircraftTypeId"
+      WHERE f."userId" = ${userId}
+        AND f."resolutionStatus" IN ('resolved', 'no_coverage')
+      GROUP BY t.id
+      ORDER BY count DESC
+      LIMIT 1
+    `,
+  ]);
+
+  return {
+    route: routeRows[0]
+      ? { dep: routeRows[0].dep, arr: routeRows[0].arr, count: Number(routeRows[0].count) }
+      : null,
+    airline: airlineRows[0]
+      ? {
+          name: airlineRows[0].name,
+          iata: airlineRows[0].iata,
+          icao: airlineRows[0].icao,
+          count: Number(airlineRows[0].count),
+        }
+      : null,
+    aircraftType: typeRows[0]
+      ? {
+          code: typeRows[0].code,
+          manufacturer: typeRows[0].manufacturer,
+          model: typeRows[0].model,
+          count: Number(typeRows[0].count),
+        }
+      : null,
+  };
+}
+
 export async function getRecords(userId: string): Promise<RecordSet> {
   const where = {
     userId,
