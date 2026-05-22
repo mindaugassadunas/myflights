@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireOwner, ApiError } from "@/lib/session";
@@ -73,16 +73,26 @@ export async function POST(req: Request) {
     throw err;
   }
 
-  // Best-effort synchronous resolution. If OpenSky errors, the flight row
-  // carries `resolutionStatus = 'failed' | 'no_coverage'` and a useful error
-  // string — the UI shows that and a retry button.
-  const resolved = await resolveFlight(flight);
-  if (resolved.resolutionStatus === "resolved") {
-    await fetchTrack(resolved.id);
-  }
-  const refreshed = await prisma.flight.findUnique({
-    where: { id: resolved.id },
-    include: flightInclude,
+  // Resolve against OpenSky after the response is sent. The flight row is
+  // already created with status `pending`, distanceKm + durationMin
+  // (haversine/estimate) and AeroDataBox metadata — that's already enough
+  // for the detail page to render usefully. Resolution + track fetch are
+  // best-effort: when they finish, the row flips to `resolved` or
+  // `no_coverage` and a fresh page load shows the new status.
+  //
+  // Done with `after()` (Next.js 15) so the serverless function stays
+  // alive until the background work completes even though the response
+  // has already shipped.
+  after(async () => {
+    try {
+      const resolved = await resolveFlight(flight);
+      if (resolved.resolutionStatus === "resolved") {
+        await fetchTrack(resolved.id);
+      }
+    } catch (err) {
+      console.error("[flights] background resolve failed", err);
+    }
   });
-  return NextResponse.json(refreshed, { status: 201 });
+
+  return NextResponse.json(flight, { status: 201 });
 }

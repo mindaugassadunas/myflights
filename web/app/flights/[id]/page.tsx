@@ -7,6 +7,7 @@ import { flightInclude } from "@/lib/flights";
 import { interpolateGreatCircle } from "@/lib/great-circle";
 import { FlightStatusBadge } from "@/components/flight-status-badge";
 import { FlightDetailActions } from "@/components/flight-detail-actions";
+import { PendingRefresh } from "@/components/pending-refresh";
 import FlightMap from "@/components/map/flight-map-loader";
 import AltitudeChart from "@/components/altitude-chart-loader";
 
@@ -32,6 +33,7 @@ export default async function FlightDetailPage({ params }: Params) {
   const arr = flight.arrAirport;
   const isResolved = flight.resolutionStatus === "resolved";
   const isNoCoverage = flight.resolutionStatus === "no_coverage";
+  const isPending = flight.resolutionStatus === "pending";
   const waypoints = Array.isArray(flight.track?.waypoints) ? flight.track.waypoints : [];
   const gaps = Array.isArray(flight.track?.gaps) ? flight.track.gaps : [];
   // Prefer the resolver-stored great-circle; fall back to one synthesised
@@ -51,6 +53,7 @@ export default async function FlightDetailPage({ params }: Params) {
 
   return (
     <div className="pt-[calc(env(safe-area-inset-top)+16px)] pb-10">
+      {isPending && <PendingRefresh />}
       <header className="px-5">
         <div className="flex items-baseline justify-between gap-3">
           <h1 className="text-[22px] leading-7 font-light">
