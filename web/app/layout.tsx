@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata, Viewport } from "next";
 import { Titillium_Web, JetBrains_Mono } from "next/font/google";
 import { BottomTabBar } from "@/components/bottom-tab-bar";
-import { AddFlightSheet } from "@/components/add-flight-sheet";
+import AddFlightSheet from "@/components/add-flight-sheet-loader";
 import { ServiceWorkerCleanup } from "@/components/service-worker-cleanup";
 import "./globals.css";
 
@@ -42,10 +42,9 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: "cover",
   themeColor: "#0A0B0D",
-  // `resizes-content` makes the layout viewport (and `dvh` units) shrink
-  // when the on-screen keyboard appears, so bottom sheets sized with
-  // `h-[92dvh]` actually adapt — without this, the sheet keeps its full
-  // height and its footer slides out from under the keyboard.
+  // `resizes-content` helps browsers that honor interactive-widget shrink
+  // the layout viewport around the keyboard. iOS Safari still needs the
+  // visualViewport fallback in the shared sheet component.
   interactiveWidget: "resizes-content",
 };
 

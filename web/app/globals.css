@@ -145,6 +145,14 @@
     min-height: 100dvh;
   }
 
+  .keyboard-safe-sheet {
+    bottom: var(--sheet-keyboard-inset, 0px);
+    max-height: calc(
+      var(--sheet-visual-viewport-height, 100dvh) -
+        max(env(safe-area-inset-top), 12px)
+    );
+  }
+
   .font-mono-data {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;

@@ -28,12 +28,27 @@ type FormState = {
 const EMPTY: FormState = {
   dep: null,
   arr: null,
-  date: new Date().toISOString().slice(0, 10),
+  date: "",
   callsign: "",
   registration: "",
   scheduledDepUtc: null,
   scheduledArrUtc: null,
 };
+
+function emptyForm(): FormState {
+  return {
+    ...EMPTY,
+    date: todayLocalIsoDate(),
+  };
+}
+
+function todayLocalIsoDate(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = (d.getMonth() + 1).toString().padStart(2, "0");
+  const day = d.getDate().toString().padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 type ScheduleLookupResponse = {
   flightNumber: string;
@@ -60,9 +75,14 @@ export function AddFlightSheet() {
   const router = useRouter();
 
   return (
-    <Sheet open={open} onOpenChange={(o) => { if (!o) closeAddFlight(); }}>
+    <Sheet
+      open={open}
+      repositionInputs={false}
+      onOpenChange={(o) => { if (!o) closeAddFlight(); }}
+    >
       <SheetContent className="h-[92dvh]">
         <AddFlightWizard
+          open={open}
           onSubmitted={(id) => {
             closeAddFlight();
             router.replace(`/flights/${id}`);
@@ -73,14 +93,31 @@ export function AddFlightSheet() {
   );
 }
 
-function AddFlightWizard({ onSubmitted }: { onSubmitted: (id: string) => void }) {
+function AddFlightWizard({
+  open,
+  onSubmitted,
+}: {
+  open: boolean;
+  onSubmitted: (id: string) => void;
+}) {
   const [step, setStep] = React.useState<Step>(1);
   const [mode, setMode] = React.useState<Mode>("flightNumber");
-  const [form, setForm] = React.useState<FormState>(EMPTY);
+  const [form, setForm] = React.useState<FormState>(() => emptyForm());
   const [lookup, setLookup] = React.useState<LookupStatus>("idle");
   const [lookupNote, setLookupNote] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!open) return;
+    setStep(1);
+    setMode("flightNumber");
+    setForm(emptyForm());
+    setLookup("idle");
+    setLookupNote(null);
+    setSubmitting(false);
+    setError(null);
+  }, [open]);
 
   const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm((s) => ({ ...s, [k]: v }));
@@ -212,9 +249,24 @@ function AddFlightWizard({ onSubmitted }: { onSubmitted: (id: string) => void })
       : "Route";
 
   const busy = lookup === "loading" || submitting;
+  const keepFocusedControlVisible = React.useCallback(
+    (event: React.FocusEvent<HTMLDivElement>) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (!target.matches("input, textarea, select")) return;
+
+      const scrollFocusedControl = () => {
+        target.scrollIntoView({ block: "center", inline: "nearest" });
+      };
+
+      requestAnimationFrame(scrollFocusedControl);
+      window.setTimeout(scrollFocusedControl, 320);
+    },
+    [],
+  );
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col" onFocusCapture={keepFocusedControlVisible}>
       <header className="px-5 pt-3 pb-2 flex items-center justify-between">
         <div>
           <div className="text-[12px] font-mono-data uppercase tracking-wider text-text-secondary">
@@ -225,14 +277,13 @@ function AddFlightWizard({ onSubmitted }: { onSubmitted: (id: string) => void })
         <StepDots step={step} />
       </header>
 
-      <div className="flex-1 min-h-0 px-5 py-3 overflow-y-auto">
+      <div className="flex-1 min-h-0 px-5 py-3 overflow-y-auto overscroll-contain scroll-pb-28">
         {step === 1 && (
           <div className="space-y-4">
             <DatePicker
               label="Date"
               value={form.date}
               onChange={(v) => set("date", v)}
-              autoFocus
             />
 
             {mode === "flightNumber" ? (
@@ -244,6 +295,7 @@ function AddFlightWizard({ onSubmitted }: { onSubmitted: (id: string) => void })
                   autoCapitalize="characters"
                   autoComplete="off"
                   spellCheck={false}
+                  autoFocus
                   className="w-full h-12 px-3 rounded-[8px] bg-surface border border-border text-[16px] font-mono-data focus:outline-none focus:border-accent"
                 />
                 <p className="mt-1 text-[12px] text-text-secondary">
@@ -329,7 +381,7 @@ function AddFlightWizard({ onSubmitted }: { onSubmitted: (id: string) => void })
         )}
       </div>
 
-      <footer className="px-5 py-4 border-t border-border pb-[max(env(safe-area-inset-bottom),16px)] flex gap-3">
+      <footer className="shrink-0 px-5 py-4 border-t border-border pb-[max(env(safe-area-inset-bottom),16px)] flex gap-3">
         {step > 1 ? (
           <button
             type="button"

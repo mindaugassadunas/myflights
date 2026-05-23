@@ -32,19 +32,36 @@ export function AirportInput({ label, placeholder, value, onChange, autoFocus }:
   const [focused, setFocused] = React.useState(false);
 
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const blurTimeoutRef = React.useRef<number | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (blurTimeoutRef.current !== null) {
+        window.clearTimeout(blurTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (focused) return;
+    setQuery(value ? formatChip(value) : "");
+  }, [focused, value]);
 
   // Debounced fetch.
   React.useEffect(() => {
     if (!focused) return;
     if (value && query === formatChip(value)) {
       setResults([]);
+      setLoading(false);
       return;
     }
     if (!query.trim()) {
       setResults([]);
+      setLoading(false);
       return;
     }
     const ctrl = new AbortController();
+    let cancelled = false;
     setLoading(true);
     const t = setTimeout(async () => {
       try {
@@ -53,14 +70,15 @@ export function AirportInput({ label, placeholder, value, onChange, autoFocus }:
         });
         if (!resp.ok) return;
         const data = (await resp.json()) as { results: AirportPick[] };
-        setResults(data.results);
+        if (!cancelled) setResults(data.results);
       } catch {
         // aborted / network — ignore
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }, 160);
     return () => {
+      cancelled = true;
       ctrl.abort();
       clearTimeout(t);
     };
@@ -86,8 +104,20 @@ export function AirportInput({ label, placeholder, value, onChange, autoFocus }:
           setQuery(e.target.value);
           if (value) onChange(null); // user is editing — clear the prior pick
         }}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setTimeout(() => setFocused(false), 120)} // allow tap on results
+        onFocus={() => {
+          if (blurTimeoutRef.current !== null) {
+            window.clearTimeout(blurTimeoutRef.current);
+            blurTimeoutRef.current = null;
+          }
+          setFocused(true);
+        }}
+        onBlur={() => {
+          // Delay blur long enough for a tap on an inline result to land.
+          blurTimeoutRef.current = window.setTimeout(() => {
+            setFocused(false);
+            blurTimeoutRef.current = null;
+          }, 120);
+        }}
         placeholder={placeholder ?? "VNO, Vilnius, Kaunas…"}
         autoCapitalize="characters"
         autoComplete="off"

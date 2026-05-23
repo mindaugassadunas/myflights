@@ -131,11 +131,14 @@ function ExpandedDetail({ flightId }: { flightId: string }) {
 
   React.useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
     setTrack(null);
     setError(null);
     (async () => {
       try {
-        const resp = await fetch(`/api/flights/${flightId}/track`);
+        const resp = await fetch(`/api/flights/${flightId}/track`, {
+          signal: controller.signal,
+        });
         if (!resp.ok) {
           const payload = (await resp.json().catch(() => ({}))) as { error?: string };
           throw new Error(payload.error ?? `error ${resp.status}`);
@@ -143,11 +146,13 @@ function ExpandedDetail({ flightId }: { flightId: string }) {
         const data = (await resp.json()) as TrackResponse;
         if (!cancelled) setTrack(data);
       } catch (err) {
+        if (controller.signal.aborted) return;
         if (!cancelled) setError((err as Error).message);
       }
     })();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [flightId]);
 

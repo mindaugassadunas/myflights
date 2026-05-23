@@ -14,6 +14,48 @@ export const SheetTrigger = VaulDrawer.Trigger;
 export const SheetClose = VaulDrawer.Close;
 export const SheetPortal = VaulDrawer.Portal;
 
+function useKeyboardSafeSheetVars() {
+  React.useEffect(() => {
+    const root = document.documentElement;
+    const visualViewport = window.visualViewport;
+    let frame = 0;
+
+    const update = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const viewportHeight = visualViewport?.height ?? window.innerHeight;
+        const rawBottomInset = visualViewport
+          ? window.innerHeight - visualViewport.height - visualViewport.offsetTop
+          : 0;
+        const keyboardInset = rawBottomInset > 120 ? rawBottomInset : 0;
+
+        root.style.setProperty(
+          "--sheet-visual-viewport-height",
+          `${Math.round(viewportHeight)}px`,
+        );
+        root.style.setProperty(
+          "--sheet-keyboard-inset",
+          `${Math.round(Math.max(0, keyboardInset))}px`,
+        );
+      });
+    };
+
+    update();
+    visualViewport?.addEventListener("resize", update);
+    visualViewport?.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      visualViewport?.removeEventListener("resize", update);
+      visualViewport?.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+      root.style.removeProperty("--sheet-visual-viewport-height");
+      root.style.removeProperty("--sheet-keyboard-inset");
+    };
+  }, []);
+}
+
 export const SheetOverlay = React.forwardRef<
   React.ElementRef<typeof VaulDrawer.Overlay>,
   React.ComponentPropsWithoutRef<typeof VaulDrawer.Overlay>
@@ -29,28 +71,32 @@ SheetOverlay.displayName = "SheetOverlay";
 export const SheetContent = React.forwardRef<
   React.ElementRef<typeof VaulDrawer.Content>,
   React.ComponentPropsWithoutRef<typeof VaulDrawer.Content>
->(({ className, children, ...props }, ref) => (
-  <SheetPortal>
-    <SheetOverlay />
-    <VaulDrawer.Content
-      ref={ref}
-      className={cn(
-        "fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-surface-elevated",
-        "border-t border-border rounded-t-[12px]",
-        "pb-[env(safe-area-inset-bottom)]",
-        "outline-none",
-        className,
-      )}
-      {...props}
-    >
-      <div
-        aria-hidden
-        className="mx-auto mt-2 h-1 w-10 rounded-full bg-border"
-      />
-      {children}
-    </VaulDrawer.Content>
-  </SheetPortal>
-));
+>(({ className, children, ...props }, ref) => {
+  useKeyboardSafeSheetVars();
+
+  return (
+    <SheetPortal>
+      <SheetOverlay />
+      <VaulDrawer.Content
+        ref={ref}
+        className={cn(
+          "keyboard-safe-sheet fixed left-0 right-0 z-50 flex flex-col bg-surface-elevated",
+          "border-t border-border rounded-t-[12px]",
+          "pb-[env(safe-area-inset-bottom)]",
+          "outline-none",
+          className,
+        )}
+        {...props}
+      >
+        <div
+          aria-hidden
+          className="mx-auto mt-2 h-1 w-10 rounded-full bg-border"
+        />
+        {children}
+      </VaulDrawer.Content>
+    </SheetPortal>
+  );
+});
 SheetContent.displayName = "SheetContent";
 
 export const SheetHeader = ({
