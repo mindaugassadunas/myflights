@@ -277,7 +277,7 @@ function AddFlightWizard({
         <StepDots step={step} />
       </header>
 
-      <div className="flex-1 min-h-0 px-5 py-3 overflow-y-auto overscroll-contain scroll-pb-28">
+      <div className="flex-1 min-h-0 px-5 pt-3 pb-28 overflow-y-auto overscroll-contain scroll-pb-28">
         {step === 1 && (
           <div className="space-y-4">
             {mode === "flightNumber" ? (

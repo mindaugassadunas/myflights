@@ -31,7 +31,9 @@ export function AirportInput({ label, placeholder, value, onChange, autoFocus }:
   const [loading, setLoading] = React.useState(false);
   const [focused, setFocused] = React.useState(false);
 
+  const rootRef = React.useRef<HTMLDivElement | null>(null);
   const inputRef = React.useRef<HTMLInputElement | null>(null);
+  const resultsRef = React.useRef<HTMLUListElement | null>(null);
   const blurTimeoutRef = React.useRef<number | null>(null);
 
   React.useEffect(() => {
@@ -84,6 +86,46 @@ export function AirportInput({ label, placeholder, value, onChange, autoFocus }:
     };
   }, [query, focused, value]);
 
+  const resultsOpen = focused && (loading || results.length > 0);
+
+  React.useEffect(() => {
+    if (!resultsOpen) return;
+
+    const keepResultsVisible = () => {
+      const root = rootRef.current;
+      const target = resultsRef.current ?? root;
+      if (!root || !target) return;
+
+      const viewport = window.visualViewport;
+      const visibleTop = viewport?.offsetTop ?? 0;
+      const visibleBottom = visibleTop + (viewport?.height ?? window.innerHeight);
+      const buffer = 16;
+      const rect = target.getBoundingClientRect();
+
+      let delta = 0;
+      if (rect.bottom > visibleBottom - buffer) {
+        delta = rect.bottom - (visibleBottom - buffer);
+      } else if (rect.top < visibleTop + buffer) {
+        delta = rect.top - (visibleTop + buffer);
+      }
+      if (delta === 0) return;
+
+      const scroller = findScrollableParent(root);
+      if (scroller instanceof Window) {
+        scroller.scrollBy({ top: delta, behavior: "smooth" });
+      } else {
+        scroller.scrollBy({ top: delta, behavior: "smooth" });
+      }
+    };
+
+    const frame = window.requestAnimationFrame(keepResultsVisible);
+    const settle = window.setTimeout(keepResultsVisible, 320);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(settle);
+    };
+  }, [resultsOpen, loading, results.length]);
+
   const pick = (a: AirportPick) => {
     onChange(a);
     setQuery(formatChip(a));
@@ -92,7 +134,7 @@ export function AirportInput({ label, placeholder, value, onChange, autoFocus }:
   };
 
   return (
-    <div>
+    <div ref={rootRef}>
       <label className="block text-[12px] font-mono-data uppercase tracking-wider text-text-secondary mb-1.5">
         {label}
       </label>
@@ -130,7 +172,11 @@ export function AirportInput({ label, placeholder, value, onChange, autoFocus }:
         )}
       />
       {focused && (loading || results.length > 0) && (
-        <ul className="mt-2 border border-border rounded-[8px] bg-surface divide-y divide-border max-h-72 overflow-y-auto">
+        <ul
+          ref={resultsRef}
+          className="mt-2 border border-border rounded-[8px] bg-surface divide-y divide-border overflow-y-auto"
+          style={{ maxHeight: "min(18rem, 36dvh)" }}
+        >
           {loading && (
             <li className="px-3 py-2 text-[13px] text-text-secondary">searching…</li>
           )}
@@ -162,4 +208,17 @@ export function AirportInput({ label, placeholder, value, onChange, autoFocus }:
 
 function formatChip(a: AirportPick) {
   return a.iata ?? a.icao ?? a.name;
+}
+
+function findScrollableParent(node: HTMLElement): HTMLElement | Window {
+  let current = node.parentElement;
+  while (current) {
+    const style = window.getComputedStyle(current);
+    const canScroll = /(auto|scroll)/.test(style.overflowY);
+    if (canScroll && current.scrollHeight > current.clientHeight) {
+      return current;
+    }
+    current = current.parentElement;
+  }
+  return window;
 }
