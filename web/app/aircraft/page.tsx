@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { format } from "date-fns";
-import { requireOwner } from "@/lib/session";
+import { requireOwnerOrRedirect } from "@/lib/session";
 import { sameTailGroups } from "@/lib/aircraft";
 
 export const metadata = { title: "Aircraft — Aloft" };
 export const dynamic = "force-dynamic";
 
 export default async function AircraftIndexPage() {
-  const owner = await requireOwner();
+  const owner = await requireOwnerOrRedirect();
   const groups = await sameTailGroups(owner.id);
 
   return (

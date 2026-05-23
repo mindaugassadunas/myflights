@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
 import { prisma } from "@/lib/prisma";
-import { requireOwner } from "@/lib/session";
+import { requireOwnerOrRedirect } from "@/lib/session";
 import { flightInclude } from "@/lib/flights";
 import { interpolateGreatCircle } from "@/lib/great-circle";
 import { FlightStatusBadge } from "@/components/flight-status-badge";
@@ -22,7 +22,7 @@ const GC_BOW_DEG = 0.3;
 
 export default async function FlightDetailPage({ params }: Params) {
   const { id } = await params;
-  const owner = await requireOwner();
+  const owner = await requireOwnerOrRedirect();
   const flight = await prisma.flight.findFirst({
     where: { id, userId: owner.id },
     include: { ...flightInclude, track: true },

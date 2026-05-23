@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireOwner } from "@/lib/session";
+import { requireOwnerOrRedirect } from "@/lib/session";
 import { flightCardSelect } from "@/lib/flights";
 import { FlightCard } from "@/components/flight-card";
 
@@ -11,7 +11,7 @@ type Search = { searchParams: Promise<{ year?: string }> };
 
 export default async function LogPage({ searchParams }: Search) {
   const { year } = await searchParams;
-  const owner = await requireOwner();
+  const owner = await requireOwnerOrRedirect();
 
   const yearNum = year && /^\d{4}$/.test(year) ? Number(year) : null;
   const dateWhere = yearNum

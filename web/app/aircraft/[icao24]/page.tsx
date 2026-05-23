@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { format } from "date-fns";
-import { requireOwner } from "@/lib/session";
+import { requireOwnerOrRedirect } from "@/lib/session";
 import { aircraftProfile } from "@/lib/aircraft";
 import { getPhotoForAircraft } from "@/lib/planespotters";
 import { AircraftPhoto } from "@/components/aircraft-photo";
@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export default async function AircraftProfilePage({ params }: Params) {
   const { icao24 } = await params;
-  const owner = await requireOwner();
+  const owner = await requireOwnerOrRedirect();
   const profile = await aircraftProfile(owner.id, icao24);
   if (!profile) notFound();
 

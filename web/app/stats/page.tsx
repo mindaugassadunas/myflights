@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { requireOwner } from "@/lib/session";
+import { requireOwnerOrRedirect } from "@/lib/session";
 import { getRecords, getTopList, getYearlyTotals } from "@/lib/stats";
 import YearlyChart from "@/components/yearly-chart-loader";
 
@@ -8,7 +8,7 @@ export const metadata = { title: "Stats — Aloft" };
 export const dynamic = "force-dynamic";
 
 export default async function StatsPage() {
-  const owner = await requireOwner();
+  const owner = await requireOwnerOrRedirect();
 
   const [yearly, records, top, flights] = await Promise.all([
     getYearlyTotals(owner.id),

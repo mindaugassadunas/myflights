@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { format } from "date-fns";
 import { prisma } from "@/lib/prisma";
-import { requireOwner } from "@/lib/session";
+import { requireOwnerOrRedirect } from "@/lib/session";
 
 export const metadata = { title: "Trips — Aloft" };
 export const dynamic = "force-dynamic";
 
 export default async function TripsPage() {
-  const owner = await requireOwner();
+  const owner = await requireOwnerOrRedirect();
   const trips = await prisma.trip.findMany({
     where: { userId: owner.id },
     orderBy: { startUtc: "desc" },
