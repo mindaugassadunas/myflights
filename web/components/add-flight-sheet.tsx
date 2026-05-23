@@ -280,12 +280,6 @@ function AddFlightWizard({
       <div className="flex-1 min-h-0 px-5 py-3 overflow-y-auto overscroll-contain scroll-pb-28">
         {step === 1 && (
           <div className="space-y-4">
-            <DatePicker
-              label="Date"
-              value={form.date}
-              onChange={(v) => set("date", v)}
-            />
-
             {mode === "flightNumber" ? (
               <Field label="Flight number · e.g. KL1772 or BT961">
                 <input
@@ -345,6 +339,12 @@ function AddFlightWizard({
                 </p>
               </Field>
             )}
+
+            <DatePicker
+              label="Date"
+              value={form.date}
+              onChange={(v) => set("date", v)}
+            />
 
             {lookup === "loading" && (
               <p className="text-[13px] text-text-secondary">Looking up route…</p>
