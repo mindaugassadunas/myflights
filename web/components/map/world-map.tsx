@@ -229,11 +229,7 @@ export function WorldMap({ initialData = null, initialError = null }: WorldMapPr
       )}
 
       {!error && loadState === "empty" && (
-        <MapNotice
-          tone="muted"
-          title="No mapped flights yet"
-          detail="Resolved or no-coverage flights will appear here."
-        />
+        <MapNotice tone="muted" title="No mapped flights yet" />
       )}
 
       <FlightSheet

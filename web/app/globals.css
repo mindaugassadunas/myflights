@@ -90,6 +90,29 @@
     outline-offset: 2px;
   }
 
+  /* Tailwind v4 (and the platform's UA default) leaves buttons with the
+     text/default cursor. We're a touch-first app but on desktop a pointer
+     on every interactive element is expected — apply globally so we don't
+     need `cursor-pointer` on every Link / button site. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  a[href],
+  summary,
+  label[for],
+  input[type="checkbox"]:not(:disabled),
+  input[type="radio"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="button"]:not(:disabled),
+  input[type="reset"]:not(:disabled),
+  select:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role="button"][aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
   ::selection {
     background: color-mix(in oklab, var(--color-accent) 35%, transparent);
     color: var(--color-text-primary);
