@@ -14,6 +14,12 @@ const config: NextAuthConfig = {
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID ?? "",
       clientSecret: process.env.GOOGLE_CLIENT_SECRET ?? "",
+      // Google is our only provider, so letting it claim a pre-existing
+      // user row keyed off the same verified email is safe — it just
+      // back-fills the Account link instead of erroring out with
+      // OAuthAccountNotLinked. Don't enable this if you ever add a
+      // second provider; it's only "dangerous" in multi-provider setups.
+      allowDangerousEmailAccountLinking: true,
     }),
   ],
   session: { strategy: "database" },
