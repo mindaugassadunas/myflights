@@ -21,13 +21,13 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Aloft",
+  title: "MyFlights",
   description: "Personal flight log with honest, ADS-B-accurate trajectories.",
-  applicationName: "Aloft",
+  applicationName: "MyFlights",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Aloft",
+    title: "MyFlights",
   },
   formatDetection: {
     telephone: false,

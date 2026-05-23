@@ -1,6 +1,6 @@
 {
-  "name": "Aloft",
-  "short_name": "Aloft",
+  "name": "MyFlights",
+  "short_name": "MyFlights",
   "description": "Personal flight log with honest, ADS-B-accurate trajectories.",
   "start_url": "/",
   "scope": "/",

@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { requireOwnerOrRedirect } from "@/lib/session";
 import { sameTailGroups } from "@/lib/aircraft";
 
-export const metadata = { title: "Aircraft — Aloft" };
+export const metadata = { title: "Aircraft — MyFlights" };
 export const dynamic = "force-dynamic";
 
 export default async function AircraftIndexPage() {

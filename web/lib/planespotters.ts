@@ -118,7 +118,7 @@ async function fetchFromPlanespotters(url: string): Promise<PlanespottersPhoto |
   try {
     const resp = await fetch(url, {
       signal: ctrl.signal,
-      headers: { "User-Agent": "Aloft/0.1 (personal flight log)" },
+      headers: { "User-Agent": "MyFlights/0.1 (personal flight log)" },
     });
     if (!resp.ok) return null;
     const data = (await resp.json()) as RawResponse;

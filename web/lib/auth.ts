@@ -2,11 +2,11 @@ import NextAuth, { type NextAuthConfig, type Session } from "next-auth";
 import Google from "next-auth/providers/google";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
-import { OWNER_EMAIL } from "@/lib/owner";
 
 /**
- * Single-tenant Auth.js config. Only OWNER_EMAIL can sign in — the signIn
- * callback rejects everyone else even if Google authenticates them.
+ * Multi-user Auth.js config. Anyone with a Google account can sign in;
+ * the PrismaAdapter materialises a fresh User row on first sign-in and
+ * all per-user data is scoped by `userId` at the data layer.
  */
 const config: NextAuthConfig = {
   adapter: PrismaAdapter(prisma),
@@ -19,10 +19,6 @@ const config: NextAuthConfig = {
   session: { strategy: "database" },
   pages: { signIn: "/login" },
   callbacks: {
-    async signIn({ user }) {
-      const email = (user.email ?? "").toLowerCase();
-      return Boolean(OWNER_EMAIL) && email === OWNER_EMAIL;
-    },
     async session({ session, user }): Promise<Session> {
       if (session.user) {
         session.user.id = user.id;

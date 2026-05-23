@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LogOut } from "lucide-react";
 import { isAuthDisabled } from "@/lib/owner";
 
-export const metadata = { title: "More — Aloft" };
+export const metadata = { title: "More — MyFlights" };
 export const dynamic = "force-dynamic";
 
 const AUTH_DISABLED = isAuthDisabled();

@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { prisma } from "@/lib/prisma";
 import { requireOwnerOrRedirect } from "@/lib/session";
 
-export const metadata = { title: "Trips — Aloft" };
+export const metadata = { title: "Trips — MyFlights" };
 export const dynamic = "force-dynamic";
 
 export default async function TripsPage() {

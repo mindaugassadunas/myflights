@@ -4,7 +4,7 @@ import { requireOwnerOrRedirect } from "@/lib/session";
 import { flightCardSelect } from "@/lib/flights";
 import { FlightCard } from "@/components/flight-card";
 
-export const metadata = { title: "Log — Aloft" };
+export const metadata = { title: "Log — MyFlights" };
 export const dynamic = "force-dynamic";
 
 type Search = { searchParams: Promise<{ year?: string }> };

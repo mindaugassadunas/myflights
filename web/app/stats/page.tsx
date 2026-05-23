@@ -4,7 +4,7 @@ import { requireOwnerOrRedirect } from "@/lib/session";
 import { getRecords, getTopList, getYearlyTotals } from "@/lib/stats";
 import YearlyChart from "@/components/yearly-chart-loader";
 
-export const metadata = { title: "Stats — Aloft" };
+export const metadata = { title: "Stats — MyFlights" };
 export const dynamic = "force-dynamic";
 
 export default async function StatsPage() {

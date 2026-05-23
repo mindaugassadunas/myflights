@@ -3,7 +3,7 @@ import WorldMap from "@/components/map/world-map-loader";
 import { ApiError, requireOwner } from "@/lib/session";
 import { getMapFlightFeatureCollection } from "@/lib/map-flights";
 
-export const metadata = { title: "Aloft" };
+export const metadata = { title: "MyFlights" };
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {

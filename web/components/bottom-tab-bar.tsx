@@ -143,7 +143,7 @@ function SideNav({ pathname }: { pathname: string | null }) {
     >
       <div className="px-5 py-6">
         <div className="text-[14px] font-mono-data uppercase tracking-wider text-text-secondary">
-          Aloft
+          MyFlights
         </div>
         <div className="text-[20px] font-light mt-0.5">Personal flight log</div>
       </div>

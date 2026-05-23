@@ -1,4 +1,4 @@
-export const metadata = { title: "Styleguide — Aloft" };
+export const metadata = { title: "Styleguide — MyFlights" };
 export const dynamic = "force-dynamic";
 
 export default function StyleguidePage() {
@@ -6,7 +6,7 @@ export default function StyleguidePage() {
     <div className="px-5 py-6 pt-[calc(env(safe-area-inset-top)+16px)] space-y-8 max-w-2xl">
       <header>
         <p className="text-[14px] text-text-secondary font-mono-data uppercase tracking-wider">
-          Aloft · Dark Precision
+          MyFlights · Dark Precision
         </p>
         <h1 className="mt-1 text-[28px] leading-8 font-light">Styleguide</h1>
         <p className="mt-2 text-[14px] leading-5 text-text-secondary">

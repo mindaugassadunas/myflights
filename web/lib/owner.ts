@@ -2,28 +2,29 @@ import "server-only";
 import { prisma } from "@/lib/prisma";
 
 /**
- * Single-tenant helper. Aloft is built for one user — the owner. In prod the
- * owner signs in via NextAuth and User is populated by the adapter. In dev
- * (no NEXTAUTH_SECRET), we materialise an owner row on demand so the API
- * can be exercised without going through Google OAuth.
+ * Dev-mode user helper. MyFlights is multi-user in prod (anyone with Google
+ * gets their own log) but local development without NEXTAUTH_SECRET still
+ * needs *some* identity to scope flight rows by. We materialise a single
+ * dev user keyed off OWNER_EMAIL (or `dev@localhost` if unset) so the
+ * stack runs end-to-end without OAuth set up.
+ *
+ * In prod, requireOwner() reads the real NextAuth session and never
+ * touches this code path.
  */
 
-export const OWNER_EMAIL = (process.env.OWNER_EMAIL ?? "").toLowerCase().trim();
+export const OWNER_EMAIL = (process.env.OWNER_EMAIL ?? "dev@localhost").toLowerCase().trim();
 
-let cachedOwnerId: string | null = null;
+let cachedDevUserId: string | null = null;
 
 export async function getOwnerId(): Promise<string> {
-  if (cachedOwnerId) return cachedOwnerId;
-  if (!OWNER_EMAIL) {
-    throw new Error("OWNER_EMAIL is not configured");
-  }
+  if (cachedDevUserId) return cachedDevUserId;
   const user = await prisma.user.upsert({
     where: { email: OWNER_EMAIL },
     update: {},
-    create: { email: OWNER_EMAIL, name: "Owner" },
+    create: { email: OWNER_EMAIL, name: "Dev user" },
     select: { id: true },
   });
-  cachedOwnerId = user.id;
+  cachedDevUserId = user.id;
   return user.id;
 }
 
