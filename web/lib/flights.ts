@@ -336,11 +336,17 @@ export function parseIataFlightNumber(input: string): {
 }
 
 function mapResolutionStatus(err: unknown): Flight["resolutionStatus"] {
-  if (err instanceof AloftApiError) {
-    if (err.reason === "no_match" || err.reason === "no_registration") return "no_coverage";
-    if (err.reason === "ambiguous") return "ambiguous";
+  if (err instanceof AloftApiError && err.reason === "ambiguous") {
+    return "ambiguous";
   }
-  return "failed";
+  // Everything else — no OpenSky match, registration not in our DB,
+  // upstream timeouts (typical for hyperscaler IPs hitting OpenSky),
+  // 5xx errors, network failures, JSON parse errors — degrades to
+  // `no_coverage`. The flight still has a usable distance, duration,
+  // and great-circle line on the map; we just don't have an ADS-B
+  // trace for it. Better than surfacing scary `ConnectTimeout` stack
+  // traces under a "Failed" badge.
+  return "no_coverage";
 }
 
 /**
