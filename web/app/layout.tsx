@@ -42,6 +42,11 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: "cover",
   themeColor: "#0A0B0D",
+  // `resizes-content` makes the layout viewport (and `dvh` units) shrink
+  // when the on-screen keyboard appears, so bottom sheets sized with
+  // `h-[92dvh]` actually adapt — without this, the sheet keeps its full
+  // height and its footer slides out from under the keyboard.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

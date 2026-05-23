@@ -225,13 +225,14 @@ function AddFlightWizard({ onSubmitted }: { onSubmitted: (id: string) => void })
         <StepDots step={step} />
       </header>
 
-      <div className="flex-1 px-5 py-3 overflow-y-auto">
+      <div className="flex-1 min-h-0 px-5 py-3 overflow-y-auto">
         {step === 1 && (
           <div className="space-y-4">
             <DatePicker
               label="Date"
               value={form.date}
               onChange={(v) => set("date", v)}
+              autoFocus
             />
 
             {mode === "flightNumber" ? (
@@ -243,7 +244,6 @@ function AddFlightWizard({ onSubmitted }: { onSubmitted: (id: string) => void })
                   autoCapitalize="characters"
                   autoComplete="off"
                   spellCheck={false}
-                  autoFocus
                   className="w-full h-12 px-3 rounded-[8px] bg-surface border border-border text-[16px] font-mono-data focus:outline-none focus:border-accent"
                 />
                 <p className="mt-1 text-[12px] text-text-secondary">
