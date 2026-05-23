@@ -159,6 +159,11 @@ export function DatePicker({
           "focus-within:border-accent",
           pickerOpen ? "border-accent" : "border-border",
         )}
+        // scroll-margin keeps a buffer above/below the field when any
+        // ancestor scrolls it into view, so iOS Safari's keyboard-
+        // induced scroll lands the field comfortably onscreen instead
+        // of jammed against the edge.
+        style={{ scrollMargin: "80px" }}
       >
         <input
           ref={inputRef}
@@ -173,10 +178,19 @@ export function DatePicker({
               commitDate(parsed);
             }
           }}
-          onFocus={() => {
+          onFocus={(e) => {
             // Move the canonical value into the editable draft so the
             // input is immediately editable without first highlighting.
             setDraft(format(selected, DISPLAY_FORMAT));
+            // iOS Safari runs scrollIntoView when an input is focused,
+            // and overshoots when the layout has just been disturbed
+            // (e.g. the nested calendar drawer dismissing). Run our own
+            // scroll on the next frame so it wins, parking the input
+            // at a sensible position instead of scrolled off-screen.
+            const target = e.target;
+            requestAnimationFrame(() => {
+              target.scrollIntoView({ block: "nearest", inline: "nearest" });
+            });
           }}
           onBlur={() => {
             // Drop any unparseable typing; the canonical value flows
