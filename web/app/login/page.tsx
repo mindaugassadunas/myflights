@@ -16,8 +16,7 @@ export default function LoginPage() {
           </div>
           <h1 className="mt-1 text-[28px] leading-8 font-light">Your flight log</h1>
           <p className="mt-2 text-[14px] text-text-secondary">
-            Sign in with Google to start logging flights — your data stays
-            private to your account.
+            Sign in with Google to start logging flights.
           </p>
         </div>
 
