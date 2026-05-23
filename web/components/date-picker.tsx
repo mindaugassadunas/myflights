@@ -18,6 +18,7 @@ import {
   subYears,
 } from "date-fns";
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon } from "lucide-react";
+import { Drawer as VaulDrawer } from "vaul";
 import { cn } from "@/lib/utils";
 
 // Accepted input shapes when the user types directly. First match wins;
@@ -104,10 +105,12 @@ export function DatePicker({
   autoFocus?: boolean;
 }) {
   const selected = React.useMemo(() => parseIsoDate(value) ?? new Date(), [value]);
-  // When the field is auto-focused on modal open, also show the calendar
-  // so the user has both input modes (typing + tapping a day) immediately
-  // visible.
-  const [expanded, setExpanded] = React.useState(Boolean(autoFocus));
+  // Calendar lives in a separate nested sheet, opened on icon tap. On
+  // mobile this avoids the keyboard-vs-inline-calendar layout fight
+  // (focused input → keyboard up → tap icon → blur → calendar would
+  // try to expand inline → scroll jumps). The sheet is a clean overlay
+  // that doesn't depend on the input's focus state.
+  const [pickerOpen, setPickerOpen] = React.useState(false);
   const [view, setView] = React.useState<Date>(startOfMonth(selected));
   // `draft` is the user's in-progress text while the input is focused.
   // null means "not actively typing — show the canonical formatted value".
@@ -136,7 +139,7 @@ export function DatePicker({
 
   const pick = (d: Date) => {
     commitDate(d);
-    setExpanded(false);
+    setPickerOpen(false);
     setDraft(null);
   };
 
@@ -154,7 +157,7 @@ export function DatePicker({
           "w-full h-12 px-3 rounded-[8px] bg-surface border",
           "flex items-center gap-2",
           "focus-within:border-accent",
-          expanded ? "border-accent" : "border-border",
+          pickerOpen ? "border-accent" : "border-border",
         )}
       >
         <input
@@ -203,12 +206,18 @@ export function DatePicker({
         />
         <button
           type="button"
-          onClick={() => setExpanded((v) => !v)}
-          aria-expanded={expanded}
-          aria-label={expanded ? "Hide calendar" : "Show calendar"}
+          onClick={() => {
+            // Drop the keyboard before the sheet animates in. Without
+            // this the OS keeps trying to scroll the input into view
+            // mid-sheet-animation and the layout flickers.
+            inputRef.current?.blur();
+            setPickerOpen(true);
+          }}
+          aria-expanded={pickerOpen}
+          aria-label="Open date picker"
           className={cn(
             "h-8 w-8 -mr-1 rounded-[6px] flex items-center justify-center",
-            expanded ? "text-accent" : "text-text-secondary",
+            pickerOpen ? "text-accent" : "text-text-secondary",
             "active:bg-surface-elevated",
           )}
         >
@@ -216,12 +225,25 @@ export function DatePicker({
         </button>
       </div>
 
-      {expanded && (
-        <div className="mt-2 rounded-[8px] border border-border bg-surface overflow-hidden">
-          <CalendarHeader view={view} onView={setView} />
-          <CalendarGrid view={view} selected={selected} onPick={pick} />
-        </div>
-      )}
+      <VaulDrawer.NestedRoot open={pickerOpen} onOpenChange={setPickerOpen}>
+        <VaulDrawer.Portal>
+          <VaulDrawer.Overlay className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" />
+          <VaulDrawer.Content
+            className={cn(
+              "fixed bottom-0 left-0 right-0 z-50 flex flex-col bg-surface-elevated",
+              "border-t border-border rounded-t-[12px]",
+              "pb-[env(safe-area-inset-bottom)] outline-none",
+            )}
+          >
+            <VaulDrawer.Title className="sr-only">Pick a date</VaulDrawer.Title>
+            <div aria-hidden className="mx-auto mt-2 h-1 w-10 rounded-full bg-border" />
+            <div className="px-3 py-3">
+              <CalendarHeader view={view} onView={setView} />
+              <CalendarGrid view={view} selected={selected} onPick={pick} />
+            </div>
+          </VaulDrawer.Content>
+        </VaulDrawer.Portal>
+      </VaulDrawer.NestedRoot>
     </div>
   );
 }
